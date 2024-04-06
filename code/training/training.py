@@ -3,9 +3,6 @@ import torch.nn as nn
 from torch import optim
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
-import torch.multiprocessing as mp
-from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.utils.data.distributed import DistributedSampler
 
 from utils.modules import (
     MM_TN,
@@ -33,36 +30,36 @@ def get_arguments():
     parser.add_argument(
         "--train_dir",
         type=str,
-        required=True,
+        default="./data/training_data/ESP/train_val/ESP_train_df.csv",
         help="The input train dataset",
     )
     parser.add_argument(
         "--val_dir",
         type=str,
-        required=True,
+        default="./data/training_data/ESP/train_val/ESP_val_df.csv",
         help="The input val dataset",
     )
     parser.add_argument(
         "--embed_path",
         type=str,
-        required=True,
+        default="./data/training_data/ESP/embeddings",
         help="Path that contains subfolders SMILES and Protein with embedding dictionaries",
     )
     parser.add_argument(
         "--save_model_path",
         type=str,
-        required=True,
+        default="./data/training_data/ESP/saved_model",
         help="The output directory where the model checkpoints will be written.",
     )
     parser.add_argument(
         "--batch_size",
-        default=12,
+        default=16,
         type=int,
         help="Batch size per GPU",
     )
     parser.add_argument(
         "--binary_task",
-        default=False,
+        default=True,
         type=bool,
         help="Specifies wether the target variable is binary or continous.",
     )
@@ -74,7 +71,7 @@ def get_arguments():
     )
     parser.add_argument(
         "--num_train_epochs",
-        default=50,
+        default=100,
         type=int,
         help="Total number of training epochs to perform.",
     )
@@ -91,8 +88,8 @@ def get_arguments():
         help="Proportion of training to perform linear learning rate warmup",
     )
     parser.add_argument(
-        "   ",
-        default='',
+        "--pretrained_model",
+        default="./data/training_data/BindingDB/saved_model/pretraining_IC50_6gpus_bs144_1.5e-05_layers6.txt.pkl",
         type=str,
         help="Path of pretrained model. If empty model will be trained from scratch.",
     )
@@ -103,15 +100,8 @@ def get_arguments():
         help="The num_hidden_layers size of MM_TN",
     )
     parser.add_argument(
-        '--port',
-        default=12557,
-        type=int,
-        help='Port for tcp connection for multiprocessing'
-    )
-
-    parser.add_argument(
         '--log_name',
-        default="",
+        default="ESP",
         type=str,
         help='Will be added to the file name of the log file'
     )
@@ -122,14 +112,15 @@ args = get_arguments()
 
 n_gpus = len(list(range(torch.cuda.device_count())))
 eff_bs =  n_gpus*args.batch_size
-args.port = args.port
 
 
 setting = args.log_name + '_' + str(n_gpus) +'gpus_bs' + str(eff_bs) +'_'+str(args.learning_rate) +'_layers' + str(args.num_hidden_layers) +'.txt'
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
-fhandler = logging.FileHandler(filename= setting +'.txt', mode='a')
+if not os.path.exists("./logs"):
+    os.makedirs("./logs")
+fhandler = logging.FileHandler(filename= './logs/'+setting +'.txt', mode='a')
 logger.addHandler(fhandler)
 
 
@@ -230,11 +221,9 @@ def trainer(gpu, args, device):
     logging.info(args)
 
     if is_cuda(device):
-        setup(gpu, args.world_size, str(args.port))
-        torch.manual_seed(0)
         torch.cuda.set_device(gpu)
+    torch.manual_seed(0)
     
-
     config = MM_TNConfig.from_dict({"s_hidden_size":600,
         "p_hidden_size":1280,
         "hidden_size": 768,
@@ -242,14 +231,11 @@ def trainer(gpu, args, device):
         "num_hidden_layers" : args.num_hidden_layers,
         "binary_task" : args.binary_task})
 
-
-
     logging.info(f"Loading model")
     model = MM_TN(config)
     
     if is_cuda(device):
         model = model.to(gpu)
-        model = DDP(model, device_ids=[gpu])
 
     if os.path.exists(args.pretrained_model) and args.pretrained_model != "":
         logging.info(f"Loading model")
@@ -306,14 +292,9 @@ def trainer(gpu, args, device):
             binary_task = args.binary_task,
             extraction_mode = False)
 
-
-        trainsampler = DistributedSampler(train_dataset, shuffle = False, num_replicas = args.world_size, rank = gpu, drop_last = True)
-        valsampler = DistributedSampler(val_dataset, shuffle = False, num_replicas = args.world_size, rank = gpu, drop_last = True)
-
-
         logging.info(f"Loading dataloader")
-        trainloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=1, sampler=trainsampler)
-        valloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=1, sampler=valsampler)
+        trainloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=1, sampler=None)
+        valloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=1, sampler=None)
         
 
         start_time = time.time()
@@ -339,31 +320,17 @@ def trainer(gpu, args, device):
             if is_main_process():
                 torch.save(model.state_dict(), os.path.join(args.save_model_path, setting + '.pkl'))
 
-    if args.world_size != -1:
-        cleanup()
 
 
 if __name__ == '__main__':
-    # Set up the device
     
-    # Check if multiple GPUs are available
-    if torch.cuda.is_available():
-        device = torch.device('cuda')
-        device_ids = list(range(torch.cuda.device_count()))
-        gpus = len(device_ids)
-        args.world_size = gpus
-        
-    else:
-        device = torch.device('cpu')
-        args.world_size = -1
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    args.world_size = -1
 
     if not os.path.exists(args.save_model_path):
         os.makedirs(args.save_model_path)
   
     try:
-        if torch.cuda.is_available():
-            mp.spawn(trainer, nprocs=args.world_size, args=(args, device))
-        else:
-            trainer(0, args, device)
+        trainer(0, args, device)
     except Exception as e:
         print(e)

@@ -36,13 +36,7 @@ python ./code/preprocessing/preprocessing.py --train_val_path ./data/training_da
 To train the ProSmith Transformer Network (code is an example to train for the ESP task):
 
 ```python
-python ./code/training/training.py --train_dir ./data/training_data/ESP/train_val/ESP_train_df.csv \
-							    --val_dir ./data/training_data/ESP/train_val/ESP_train_df.csv \
-							    --save_model_path ./data/training_data/ESP/saved_model \
-							    --embed_path ./data/training_data/ESP/embeddings \
-							    --pretrained_model ./data/training_data/BindingDB/saved_model/pretraining_IC50_6gpus_bs144_1.5e-05_layers6.txt.pkl \
-							    --learning_rate 1e-5  --num_hidden_layers 6 --batch_size 24 --binary_task True \
-							    --log_name ESP --num_train_epochs 100
+python ./code/training/training.py
 ```
 
 This model will train for num_train_epochs=100 epochs and it will store the best model (i.e. with the best performance on the validation set) in "save_model_path". Therefore, after each epoch model performance is evaluated. 
@@ -53,13 +47,7 @@ This model will train for num_train_epochs=100 epochs and it will store the best
 To train gradient boosting models for the ESP task, execute the following command:
 
 ```python
-python ./code/training/training_GB.py --train_dir ./data/training_data/ESP/train_val/ESP_train_df.csv \
-							    --val_dir ./data/training_data/ESP/train_val/ESP_val_df.csv \
-							    --test_dir ./data/training_data/ESP/train_val/ESP_test_df.csv \
-							    --pretrained_model ./data/training_data/ESP/saved_model/ESP_1gpus_bs24_1e-05_layers6.txt.pkl \
-							    --embed_path ./data/training_data/ESP/embeddings \
-							    --save_pred_path ./data/training_data/ESP/saved_predictions \
-							    --num_hidden_layers 6 --num_iter 500 --log_name ESP --binary_task True		    
+python ./code/training/training_GB.py
 ```
 
 The final predictions of the ProSmith model will be saved in "save_pred_path". They might differ from the original order in the csv file, but there is an additional file, containing the original indices. You can map the predictions to the csv file using the following python code:
