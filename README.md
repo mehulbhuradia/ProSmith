@@ -25,9 +25,7 @@ For an example of such csv-files, please have a look at the files in following f
 Before you can start training ProSmith, ESM-1b embeddings and ChemBERTa2 embeddings need to be calculated for all protein sequences and SMILES strings in your repository, respectively. For example, for the ESP dataset this can be done by executing the following command:
 
 ```python
-python /path_to_repository/code/preprocessing/preprocessing.py --train_val_path /path_to_repository/data/training_data/ESP/train_val/ \
-															   --outpath /path_to_repository/data/training_data/ESP/embeddings \
-															   --smiles_emb_no 2000 --prot_emb_no 2000
+python ./code/preprocessing/preprocessing.py --train_val_path ./data/training_data/ESP/train_val/ --outpath ./data/training_data/ESP/embeddings --smiles_emb_no 2000 --prot_emb_no 1000
 ```
 -"train_val_path": specifies, where all training and validation files are stored (with all protein sequences and SMILES strings)
 -"outpath": specifies, where the calculated ESM-1b and ChemBERTa2 embeddings will be stored
@@ -38,11 +36,11 @@ python /path_to_repository/code/preprocessing/preprocessing.py --train_val_path 
 To train the ProSmith Transformer Network (code is an example to train for the ESP task):
 
 ```python
-python /path_to_repository/code/training/training.py --train_dir /path_to_repository/data/training_data/ESP/train_val/ESP_train_df.csv \
-							    --val_dir /path_to_repository/data/training_data/ESP/train_val/ESP_train_df.csv \
-							    --save_model_path /path_to_repository/data/training_data/ESP/saved_model \
-							    --embed_path /path_to_repository/data/training_data/ESP/embeddings \
-							    --pretrained_model /path_to_repository/data/training_data/BindingDB/saved_model/pretraining_IC50_6gpus_bs144_1.5e-05_layers6.txt.pkl \
+python ./code/training/training.py --train_dir ./data/training_data/ESP/train_val/ESP_train_df.csv \
+							    --val_dir ./data/training_data/ESP/train_val/ESP_train_df.csv \
+							    --save_model_path ./data/training_data/ESP/saved_model \
+							    --embed_path ./data/training_data/ESP/embeddings \
+							    --pretrained_model ./data/training_data/BindingDB/saved_model/pretraining_IC50_6gpus_bs144_1.5e-05_layers6.txt.pkl \
 							    --learning_rate 1e-5  --num_hidden_layers 6 --batch_size 24 --binary_task True \
 							    --log_name ESP --num_train_epochs 100
 ```
@@ -55,12 +53,12 @@ This model will train for num_train_epochs=100 epochs and it will store the best
 To train gradient boosting models for the ESP task, execute the following command:
 
 ```python
-python /path_to_repository/code/training/training_GB.py --train_dir /path_to_repository/data/training_data/ESP/train_val/ESP_train_df.csv \
-							    --val_dir /path_to_repository/data/training_data/ESP/train_val/ESP_val_df.csv \
-							    --test_dir /path_to_repository/data/training_data/ESP/train_val/ESP_test_df.csv \
-							    --pretrained_model /path_to_repository/data/training_data/ESP/saved_model/ESP_1gpus_bs24_1e-05_layers6.txt.pkl \
-							    --embed_path /path_to_repository/data/training_data/ESP/embeddings \
-							    --save_pred_path /path_to_repository/data/training_data/ESP/saved_predictions \
+python ./code/training/training_GB.py --train_dir ./data/training_data/ESP/train_val/ESP_train_df.csv \
+							    --val_dir ./data/training_data/ESP/train_val/ESP_val_df.csv \
+							    --test_dir ./data/training_data/ESP/train_val/ESP_test_df.csv \
+							    --pretrained_model ./data/training_data/ESP/saved_model/ESP_1gpus_bs24_1e-05_layers6.txt.pkl \
+							    --embed_path ./data/training_data/ESP/embeddings \
+							    --save_pred_path ./data/training_data/ESP/saved_predictions \
 							    --num_hidden_layers 6 --num_iter 500 --log_name ESP --binary_task True		    
 ```
 

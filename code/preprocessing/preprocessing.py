@@ -4,7 +4,7 @@ import argparse
 import pandas as pd
 
 from smiles_embeddings import *
-#from protein_embeddings import *
+from protein_embeddings import *
 
 def get_arguments():
     parser = argparse.ArgumentParser()
@@ -39,9 +39,8 @@ args = get_arguments()
 
 #Find all training and validation dataframes
 dataframes = os.listdir(args.train_val_path)
-df = pd.read_csv(join(args.train_val_path, dataframes[0]))
-for dataframe in dataframes[1:]:
-	df = df.append(pd.read_csv(join(args.train_val_path, dataframe)), ignore_index = True)
+df_list = [pd.read_csv(join(args.train_val_path, dataframe)) for dataframe in dataframes]
+df = pd.concat(df_list, ignore_index=True)
 
 
 #Get all Protein Sequences and SMILES strings
